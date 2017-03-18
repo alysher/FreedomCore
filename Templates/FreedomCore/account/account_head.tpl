@@ -52,6 +52,11 @@
         {/if}
         <link rel="stylesheet" type="text/css" media="all" href="/Templates/{$Template}/css/account/languages/{$Language}.css" />
     {/if}
+    {if $Page.type == 'admin'}
+        {if $Page.bodycss == 'services-home'}
+            <link rel="stylesheet" type="text/css" media="all" href="/Templates/{$Template}/css/build/cms.min.css" />
+        {/if}
+    {/if}
     {if $Page.type == 'account_dashboard'}
         <link rel="stylesheet" type="text/css" media="all" href="/Templates/{$Template}/css/nav-client-desktop.css" />
         <link rel="stylesheet" type="text/css" media="all" href="/Templates/{$Template}/css/account/common.css" />
@@ -63,6 +68,10 @@
         {/if}
         {if $Page.bodycss == 'claimcode'}
             <link rel="stylesheet" type="text/css" media="all" href="/Templates/{$Template}/css/account/add-game.css" />
+        {/if}
+        {if $Page.bodycss == 'restoration'}
+            <link rel="stylesheet" type="text/css" media="all" href="/Templates/{$Template}/css/account/restoration/restoration.css" />
+            <link rel="stylesheet" type="text/css" media="all" href="/Templates/{$Template}/css/account/restoration/item.css" />
         {/if}
         {if $Page.bodycss == 'servicespage'}
             <link rel="stylesheet" type="text/css" media="all" href="/Templates/{$Template}/css/account/guild_services.css" />

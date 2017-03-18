@@ -8,6 +8,7 @@ Class Items
     public static $TM;
 
     public static $SocketBonuses;
+    public static $GemProperties;
 
     public function __construct($VariablesArray)
     {
@@ -15,6 +16,8 @@ Class Items
         Items::$WConnection = $VariablesArray[0]::$WConnection;
         Items::$CConnection = $VariablesArray[0]::$CConnection;
         Items::$TM = $VariablesArray[1];
+        if(empty($GemProperties))
+            Items::LoadGemProperties();
         //Items::LoadSocketBonus();
     }
 
@@ -113,6 +116,9 @@ Class Items
             if($Result['socketBonus'] != 0)
                 $Result['socketBonusDescription'] = Items::SocketBonus($Result['socketBonus']);
             $Result['itemsetinfo'] = Items::GetItemSetInfo($ItemID);
+            if($Result['GemProperties'] != 0){
+                $Result['gem_bonus'] = Items::getGemBonus($Result['GemProperties']);
+            }
             return $Result;
         }
     }
@@ -582,13 +588,93 @@ Class Items
     public static function SocketDescription($SocketColorID)
     {
         $Sockets = array(
-            '1' => array('subclass' => '6', 'translation' => Items::$TM->GetConfigVars('Item_SubClass_Meta'), 'type' => 'META'),
-            '2' => array('subclass' => '0', 'translation' => Items::$TM->GetConfigVars('Item_SubClass_Red'), 'type' => 'RED'),
-            '4' => array('subclass' => '2', 'translation' => Items::$TM->GetConfigVars('Item_SubClass_Yellow'), 'type' => 'YELLOW'),
-            '8' => array('subclass' => '1', 'translation' => Items::$TM->GetConfigVars('Item_SubClass_Blue'), 'type' => 'BLUE')
+            '1' => array('subclass' => '6', 'translation' => Items::$TM->GetConfigVars('Item_SubClass_Meta'), 'type' => 'META', 'css_position' => 1),
+            '2' => array('subclass' => '0', 'translation' => Items::$TM->GetConfigVars('Item_SubClass_Red'), 'type' => 'RED', 'css_position' => 2),
+            '4' => array('subclass' => '2', 'translation' => Items::$TM->GetConfigVars('Item_SubClass_Yellow'), 'type' => 'YELLOW', 'css_position' => 4),
+            '8' => array('subclass' => '1', 'translation' => Items::$TM->GetConfigVars('Item_SubClass_Blue'), 'type' => 'BLUE', 'css_position' => 8)
         );
 
         return $Sockets[$SocketColorID];
+    }
+    
+    public static function SiteSlotPositionByType($Type, $Return = false)
+    {
+        $Positions = [
+            1 => ['side' => 'left', 'placement' => '1'],
+            2 => ['side' => 'left', 'placement' => '2'],
+            3 => ['side' => 'left', 'placement' => '3'],
+            16 => ['side' => 'left', 'placement' => '4'],
+            5 => ['side' => 'left', 'placement' => '5'],
+            4 => ['side' => 'left', 'placement' => '6'],
+            19 => ['side' => 'left', 'placement' => '7'],
+            9 => ['side' => 'left', 'placement' => '8'],
+
+            10 => ['side' => 'right', 'placement' => '1'],
+            6 => ['side' => 'right', 'placement' => '2'],
+            7 => ['side' => 'right', 'placement' => '3'],
+            8 => ['side' => 'right', 'placement' => '4'],
+            11 => ['side' => 'right', 'placement' => '5'],
+            111 => ['side' => 'right', 'placement' => '6'],
+            12 => ['side' => 'right', 'placement' => '7'],
+            112 => ['side' => 'right', 'placement' => '8'],
+
+            13 => ['side' => '', 'placement' => ''],
+            14 => ['side' => 'bottom', 'placement' => '2'],
+            15 => ['side' => '', 'placement' => ''],
+            17 => ['side' => 'bottom', 'placement' => '1'],
+            20 => ['side' => '', 'placement' => ''],
+            21 => ['side' => 'bottom', 'placement' => '1'],
+            22 => ['side' => 'bottom', 'placement' => '2'],
+            25 => ['side' => 'bottom', 'placement' => '3'],
+            26 => ['side' => 'bottom', 'placement' => '3'],
+            28 => ['side' => 'bottom', 'placement' => '2'],
+            117 => ['side' => 'bottom', 'placement' => '2'],
+        ];
+        if(!$Return)
+            return $Positions[$Type];
+        else
+            return $Positions;
+    }
+
+    public static function IsEquipment($SlotID)
+    {
+        $Equipment = [15, 1, 16, 2, 17, 3, 4, 19, 5, 6, 21, 7, 22, 8, 9, 10, 25, 26, 11, 12, 13, 28, 14, 111, 112, 117];
+        if(in_array($SlotID, $Equipment))
+            return true;
+        else
+            return false;
+    }
+
+    public static function InventoryTypeToCharacterInventory($TypeID){
+        $InventoryTypes = [
+            1   =>  0, // Head
+            2   =>  1, // Neck
+            3   =>  2, // Shoulders
+            4   =>  3, // Body | Shirt
+            5   =>  4, // Chest
+            6   =>  5, // Waist
+            7   =>  6, // Legs
+            8   =>  7, // Feet
+            9   =>  8, // Wrists
+            10  =>  9, // Hands
+            31  => 10, // Finger 1
+            32  => 11, // Finger 2
+            40  => 15, // One Hand | Main Hand
+            41  => 16, // One Hand | Offhand
+            42  => 12, // Trinket 1
+            43  => 13, // Trinket 2
+            14  => 16, // Shield | Offhand
+            16  => 14, // Back
+            17  => 15, // Two Hand | Main Hand
+            20  =>  4, // Robe | Chest
+            21  => 15, // Right Hand | Main Hand
+            26  => 17, // Ranged | Guns
+            23  => 16, // Tome | Offhand
+            25  => 17, // Thrown | Ranged
+            28  => 17, // Relic | Ranged
+        ];
+        if(array_key_exists($TypeID, $InventoryTypes))
+            return $InventoryTypes[$TypeID];
     }
 
     public static function InventoryTypeTranslation($TypeID)
@@ -626,6 +712,41 @@ Class Items
         );
 
         return $InventoryType[$TypeID];
+    }
+
+    public static function CalculateWeaponDamage($Weapon, $AP){
+        $MinimumRange = (($Weapon['min'] / $Weapon['speed']) + ($AP / 14)) * $Weapon['speed'];
+        $MaximumRange = (($Weapon['max'] / $Weapon['speed']) + ($AP / 14)) * $Weapon['speed'];
+        $WeaponDPS = (($MinimumRange + $MaximumRange) / 2) / $Weapon['speed'];
+        return ['minimum' => round($MinimumRange, 0), 'maximum' => round($MaximumRange, 0), 'dps' => round($WeaponDPS, 0), 'speed' => $Weapon['speed']];
+    }
+
+    public static function getDataForItemInstance($IDs){
+        $Query = "SELECT entry, name, MaxDurability, InventoryType FROM item_template WHERE ENTRY IN (%s)";
+        $ItemsString = "";
+
+        for($i = 0; $i < count($IDs); $i++){
+            if($i == count($IDs) - 1)
+                $ItemsString .= $IDs[$i];
+            else
+                $ItemsString .= $IDs[$i].', ';
+        }
+        $Query = sprintf($Query, $ItemsString);
+
+        return Database::getMultiRow('World', $Query);
+    }
+
+    public static function generateItemInstanceSQL($CharacterGUID, $Items){
+        $SQLArray = [];
+        $ItemsData = self::getDataForItemInstance($Items);
+        foreach($ItemsData as $Item){
+            $ItemEntry = $Item['entry'];
+            $Durability = $Item['MaxDurability'];
+            $SQLArray[] = "INSERT INTO item_instance(guid, itemEntry, owner_guid, creatorGuid, giftCreatorGuid, count, duration, charges, flags, enchantments, randomPropertyId, durability, playedTime, text) VALUES ((SELECT MAX(guid) FROM item_instance ii) +1, '$ItemEntry', '$CharacterGUID', '0', '0', '1', '0', '0 0 0 0 0', '1', '0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0', '0', '$Durability', '0', '')";
+        }
+        $SQLArray[] = "INSERT INTO item_instance(guid, itemEntry, owner_guid, creatorGuid, giftCreatorGuid, count, duration, charges, flags, enchantments, randomPropertyId, durability, playedTime, text) VALUES ((SELECT MAX(guid) FROM item_instance ii) +1, '6948', '$CharacterGUID', '0', '0', '1', '0', '0 0 0 0 0', '1', '0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0', '0', '0', '0', '')";
+
+        return $SQLArray;
     }
 
     private static function GetSpellData($SpellID)
@@ -691,6 +812,197 @@ Class Items
         );
 
         return $BondType[$BondID];
+    }
+
+    public static function isItemEnchanted($ItemData)
+    {
+        $SumValue = 0;
+        $Explode = explode(" ", $ItemData);
+        foreach($Explode as $Value)
+            $SumValue = $SumValue + $Value;
+        if($SumValue > 0)
+            return true;
+        else
+            return false;
+    }
+
+    public static function getEnchantments($String)
+    {
+        $Enchantments = [];
+        $Values = explode(' ', $String);
+        for($i = 0; $i < count($Values); $i++)
+            if($Values[$i] > 0)
+                $Enchantments[] = $Values[$i];
+        return $Enchantments;
+    }
+
+    public static function LoadGemProperties()
+    {
+        $File = getcwd().DS.'Core'.DS.'Extensions'.DS.'GemBonuses.json';
+        Items::$GemProperties = json_decode(file_get_contents($File), true);
+    }
+
+    public static function FindSimilarBonusString($BonusString)
+    {
+        $SimilarStringKey = 0;
+        $PossibleKeys = [];
+        foreach(Items::$GemProperties as $Key=>$Bonus){
+            similar_text($BonusString, $Bonus, $Percent);
+            if($Percent > 70){
+                $PossibleKeys[] = $Key;
+            }
+        }
+        if(count($PossibleKeys) == 1)
+            return $PossibleKeys[0];
+        else
+            return $PossibleKeys[0];
+    }
+
+    public static function GetValueVariable($String){
+        if(strstr($String, " and ")){
+            $Explode = explode(" and ", $String);
+            preg_match_all('!\d+!', $String, $Values);
+
+            $FirstString = self::FindSimilarBonusString($Explode[0]);
+            $SecondString = self::FindSimilarBonusString($Explode[1]);
+            $BonusValues = $Values[0];
+
+            $FSBonus = Items::$GemProperties[$FirstString];
+            $SSBonus = Items::$GemProperties[$SecondString];
+
+            if(strstr($SSBonus, $FSBonus))
+                $SSBonus = str_replace($FSBonus.' and ', '', $SSBonus);
+
+            $FSBonus = trim(str_replace('%i%', '', str_replace('+%i', '', $FSBonus)));
+            $SSBonus = trim(str_replace('%i%', '', str_replace('+%i', '', $SSBonus)));
+
+            $FinalArray = [
+                'first' => [
+                    'value'     =>  self::BonusToValue($FSBonus),
+                    'points'    =>  $BonusValues[0]
+                ],
+                'second' => [
+                    'value'     =>  self::BonusToValue($SSBonus),
+                    'points'    =>  $BonusValues[1]
+                ]
+            ];
+            return $FinalArray;
+        } else {
+            $Key = self::FindSimilarBonusString($String);
+            $BonusString = Items::$GemProperties[$Key];
+            $Formatted = trim(str_replace('%i%', '', str_replace('+%i', '', $BonusString)));
+            preg_match_all('!\d+!', $String, $Values);
+            $BonusValues = $Values[0];
+            $Value = self::BonusToValue($Formatted);
+            if($Value == "AllStats"){
+                $FinalArray = [
+                    'first' => [
+                        'value'     =>  self::BonusToValue('Agility'),
+                        'points'    =>  $BonusValues[0]
+                    ],
+                    'second' => [
+                        'value'     =>  self::BonusToValue('Strength'),
+                        'points'    =>  $BonusValues[0]
+                    ],
+                    'third' => [
+                        'value'     =>  self::BonusToValue('Intellect'),
+                        'points'    =>  $BonusValues[0]
+                    ],
+                    'forth' => [
+                        'value'     =>  self::BonusToValue('Stamina'),
+                        'points'    =>  $BonusValues[0]
+                    ],
+                    'fifth' => [
+                        'value'     =>  self::BonusToValue('Spirit'),
+                        'points'    =>  $BonusValues[0]
+                    ]
+                ];
+                return $FinalArray;
+            } else
+                return [['value' => self::BonusToValue($Formatted), 'points' => $BonusValues[0]]];
+
+        }
+    }
+
+    public static function BonusToValue($Text){
+        $Bonuses = [
+            'Strength'                  =>  'StrengthValue',
+            'Agility'                   =>  'AgilityValue',
+            'Stamina'                   =>  'StaminaValue',
+            'Intellect'                 =>  'IntellectValue',
+            'Spirit'                    =>  'SpiritValue',
+
+            'Spell Power'               =>  'SpellPowerValue',
+            'Spell Penetration'         =>  'SpellPenetrationValue',
+
+            'Critical Strike Rating'    =>  'CritValue',
+            'Increased Critical Damage' =>  'CritValue',
+            'Hit Rating'                =>  'HitValue',
+            'All Stats'                 =>  'AllStats',
+            'Armor Penetration Rating'  =>  'ArmorPenetrationValue'
+        ];
+
+        return $Bonuses[$Text];
+    }
+
+    public static function getEnchantmentData($EnchantmentID)
+    {
+        $Statement = Items::$DBConnection->prepare('SELECT * FROM freedomcore_itemenchantmet WHERE itemenchantmetID = :id');
+        $Statement->bindParam(':id', $EnchantmentID);
+        $Statement->execute();
+        if(Database::IsEmpty($Statement))
+            return false;
+        else {
+            $Result = $Statement->fetch(PDO::FETCH_ASSOC);
+            $GetSpellData = Spells::GetSpellByMisc($Result['itemenchantmetID']);
+            if($GetSpellData && $GetSpellData['effect1id'] == 53){
+                $Result['enchant_id'] = $GetSpellData['effect1itemtype'];
+                $Result['name'] = $GetSpellData['spellname_loc0'];
+                if($GetSpellData['effect1itemtype'] != 0)
+                    $Result['create_tooltip'] = 1;
+                else
+                    $Result['create_tooltip'] = 0;
+                $Result['is_spell'] = 1;
+                $Result['is_socket'] = 0;
+            } else {
+                $GemData = Items::getGemData($Result['itemenchantmetID']);
+                $Result['enchant_id'] = $GemData['entry'];
+                $Result['name'] = $GemData['name'];
+                $Result['icon'] = $GemData['icon'];
+                $Result['is_spell'] = 0;
+                $Result['is_socket'] = 1;
+            }
+
+            return $Result;
+        }
+    }
+
+    public static function getGemBonus($GemProperty)
+    {
+        $Statement = Items::$DBConnection->prepare('SELECT ie.text_loc0 as bonus FROM freedomcore_itemenchantmet ie LEFT JOIN freedomcore_gemproperties gp ON gp.itemenchantmetID = ie.itemenchantmetID WHERE gp.gempropertiesID = :gpid');
+        $Statement->bindParam(':gpid', $GemProperty);
+        $Statement->execute();
+        if(Database::IsEmpty($Statement))
+            return false;
+        else
+            return $Statement->fetch(PDO::FETCH_ASSOC)['bonus'];
+    }
+
+    public static function getGemData($EnchantmentID)
+    {
+        global $FCCore;
+        $Statement = Items::$DBConnection->prepare('SELECT gempropertiesID FROM freedomcore_gemproperties WHERE itemenchantmetID = :enchid');
+        $Statement->bindParam(':enchid', $EnchantmentID);
+        $Statement->execute();
+        $GemProperty = $Statement->fetch(PDO::FETCH_ASSOC)['gempropertiesID'];
+
+        $WorldStatement = Items::$WConnection->prepare('SELECT it.entry, it.name, LOWER(fi.iconname) as icon FROM item_template it LEFT JOIN '.$FCCore['Database']['database'].'.freedomcore_icons fi ON it.displayid = fi.id WHERE GemProperties = :enchid');
+        $WorldStatement->bindParam(':enchid', $GemProperty);
+        $WorldStatement->execute();
+        if(Database::IsEmpty($WorldStatement))
+            return false;
+        else
+            return $WorldStatement->fetch(PDO::FETCH_ASSOC);
     }
 
     private static function StatTranslation($StatID)
@@ -1038,51 +1350,81 @@ Class Spells
             return false;
     }
 
+    private static function replaceBrackets($String)
+    {
+        return str_replace('$$', '$', str_replace('{', '', str_replace('}', '', $String)));
+    }
+
     private static function ParseDescription($SpellData, $DescriptionString)
     {
         $DescriptionString = strtr($DescriptionString, array("\r" => '', "\n" => '<br />'));
+        $DescriptionString = self::replaceBrackets($DescriptionString);
         $Modifiers = array('+', '-', '/', '*', '^');
         $SubSpells = array();
         $ModifierWasFound = false;
+        $DurationChanged = false;
+        $UsedModifier = "";
         foreach($Modifiers as $Modifier)
         {
-            if(strstr($DescriptionString, $Modifier))
+            if(strstr(substr($DescriptionString, strpos($DescriptionString, '$')), $Modifier))
             {
                 $Explode = explode($Modifier, substr($DescriptionString, strpos($DescriptionString, '$')));
                 $SpellID = $Explode[0];
                 $UsedModifier = $Modifier;
-                @$SecondExplode = explode(';', $Explode[1]);
+                if(strstr($Explode[1], ';')){
+                    @$SecondExplode = explode(';', $Explode[1]);
+                    $ExplodedWith = ';';
+                }
+                else{
+                    @$SecondExplode = explode(' ', $Explode[1]);
+                    $ExplodedWith = ' ';
+                }
                 $Duration = $SecondExplode[0];
-                $ExplodedWith = ';';
                 $SubSpells[] = @array(str_replace('.', '', $SecondExplode[1]));
                 $ModifierWasFound = true;
             }
         }
-        if($ModifierWasFound == false)
-        {
-            preg_match_all('!\$\d+\D\d?!', $DescriptionString, $SubSpells);
-            if(empty($SubSpells[0]))
-                preg_match_all('!\$\D\d?!', $DescriptionString, $SubSpells);
-        }
+        preg_match_all('!\$\w+\D\d?!', $DescriptionString, $SubSpells);
+        if(empty($SubSpells[0]))
+            preg_match_all('!\$\D\d?!', $DescriptionString, $SubSpells);
 
         $SubSpells = call_user_func_array('array_merge', $SubSpells);
         $SubSpellsData = Spells::ParseSubSpells($SubSpells);
+        if(isset($Duration)){
+            $OldDuration = "";
+            if(strstr($Duration, '$')){
+                $DurationChanged = true;
+                $OldDuration = $Duration;
+                $Data = self::ParseSubSpells([$Duration])[0];
+                $ParseResult = Spells::ArgumentParser($SpellData, $Data['SpellID'], $Data['Argument'], $Data['ArgumentValue']).' ';
+                $Duration = $ParseResult;
+
+                $Unset = Text::Search($SubSpellsData, ['SpellID' => $Data['SpellID'], 'Argument' => $Data['Argument']])[0];
+                unset($SubSpellsData[$Unset]);
+            }
+        }
+
         foreach($SubSpellsData as $SubSpell)
         {
             if($ModifierWasFound == false)
             {
-                $ParseResult = Spells::ArgumentParser($SpellData, $SubSpell['SpellID'], $SubSpell['Argument'], $SubSpell['ArgumentValue']);
+                $ParseResult = Spells::ArgumentParser($SpellData, $SubSpell['SpellID'], $SubSpell['Argument'], $SubSpell['ArgumentValue']).' ';
                 $Replacement = '$'.$SubSpell['SpellID'].$SubSpell['Argument'].$SubSpell['ArgumentValue'];
                 $DescriptionString = str_replace($Replacement, $ParseResult, $DescriptionString);
             }
             else
             {
                 $ParseResult = Spells::ArgumentParser($SpellData, $SubSpell['SpellID'], $SubSpell['Argument'], $SubSpell['ArgumentValue'], $UsedModifier.$Duration);
-                $Replacement = '$'.$UsedModifier.$Duration.$ExplodedWith.$SecondExplode[1];
+                if($DurationChanged)
+                    if(strstr($SubSpell['SpellID'], '*') || strstr($SubSpell['Argument'], '*') || strstr($SubSpell['ArgumentValue'], '*'))
+                        $Replacement = '$'.$SubSpell['SpellID'].$SubSpell['Argument'].$SubSpell['ArgumentValue'].$OldDuration;
+                    else
+                        $Replacement = '$'.$SubSpell['SpellID'].$SubSpell['Argument'].$SubSpell['ArgumentValue'];
+                else
+                    $Replacement = '$'.$UsedModifier.$Duration.$ExplodedWith.$SecondExplode[1];
                 $DescriptionString = str_replace($Replacement, $ParseResult, $DescriptionString);
             }
         }
-
 
         return $DescriptionString;
     }
@@ -1099,13 +1441,15 @@ Class Spells
     {
         $SpellSplitter = array('r', 'z', 'c', 's', 'o', 't', 'm', 'x', 'q', 'a', 'h', 'f', 'n', 'd', 'i', 'e', 'v', 'u', 'b', 'l', 'g');
         $SubSpellsData = array();
-        foreach($SubSpells as $SubSpell)
+        foreach($SubSpells as $SubSpell){
+            $SubSpell = str_replace('.', '', str_replace(',', '', $SubSpell));
             foreach($SpellSplitter as $SplitBy)
                 if(strstr($SubSpell, $SplitBy))
                 {
                     $Explode = explode($SplitBy, $SubSpell);;
                     $SubSpellsData[] = array('SpellID' => str_replace('$', '', $Explode[0]), 'Argument' => $SplitBy, 'ArgumentValue' => $Explode[1]);
                 }
+        }
         return $SubSpellsData;
     }
 
@@ -1128,6 +1472,16 @@ Class Spells
                     $Equation = abs($SpellData['effect1BasePoints']).$MathEquation;
                     eval("\$BasePoints = $Equation;");
                     $Data = abs(floor($BasePoints)).($SpellData['effect1DieSides'] > 1 ? ' - '.abs((floor($BasePoints)+$SpellData['effect1DieSides'])) : '');
+                }
+            break;
+
+            case 'm':
+                if(is_numeric($Spell))
+                    $SpellData = Spells::GetSpellByID($Spell);
+                if($MathEquation){
+                    $Equation = abs($SpellData['effect1BasePoints']).$MathEquation;
+                    eval("\$BasePoints = $Equation;");
+                    $Data = abs($BasePoints);
                 }
             break;
 
@@ -1155,7 +1509,7 @@ Class Spells
                 if(is_numeric($Spell))
                     $SpellData = Spells::GetSpellRadiusBySpellID($Spell);
 
-                $BasePoints = Spells::GetSpellRadiusByRadiusID($SpellData['effect'.$Value.'radius']);
+                $BasePoints = Spells::GetSpellRadiusByRadiusID($SpellData['effect'.trim($Value).'radius']);
 
                 $Data = abs($BasePoints);
             break;
@@ -1164,7 +1518,7 @@ Class Spells
         return $Data;
     }
 
-    private static function GetSpellByID($SpellID)
+    public static function GetSpellByID($SpellID)
     {
         $Statement = Items::$DBConnection->prepare('SELECT fs.*, LOWER(fsi.iconname) as icon FROM freedomcore_spell fs, freedomcore_spellicons fsi WHERE fs.spellID = :spellid AND fsi.id = fs.spellicon LIMIT 1');
         $Statement->bindParam(':spellid', $SpellID);
@@ -1174,6 +1528,18 @@ Class Spells
             return $Result;
         else
             return false;
+    }
+
+    public static function GetSpellByMisc($MiscValue)
+    {
+        $Statement = Items::$DBConnection->prepare('SELECT fs.*, LOWER(fsi.iconname) as icon FROM freedomcore_spell fs, freedomcore_spellicons fsi WHERE fs.effect1MiscValue = :mvalue AND fsi.id = fs.spellicon LIMIT 1');
+        $Statement->bindParam(':mvalue', $MiscValue);
+        $Statement->execute();
+        $Result = $Statement->fetch(PDO::FETCH_ASSOC);
+        if (Database::IsEmpty($Statement))
+            return false;
+        else
+            return $Result;
     }
 
     private static function GetSpellDurationBySpellID($SpellID)

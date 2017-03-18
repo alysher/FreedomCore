@@ -9,6 +9,7 @@ Class Characters
 
     private static $CharacterLevel;
     private static $CharacterClass;
+    private static $CharacterRace;
 
     public function __construct($VariablesArray)
     {
@@ -167,80 +168,236 @@ Class Characters
         return $Result;
     }
 
+    private static function LevelStats($Race, $Class, $Level)
+    {
+        $LevelStatsStatement = Characters::$WConnection->prepare('
+          SELECT
+            pls.str,
+            pls.agi,
+            pls.sta,
+            pls.inte,
+            pls.spi,
+            pcls.basehp,
+            pcls.basemana
+        FROM player_levelstats pls
+        LEFT JOIN player_classlevelstats pcls ON
+            pls.class = pcls.class
+        WHERE
+                pls.level = pcls.level
+            AND
+                pls.race = :race
+            AND
+                pls.class = :class
+            AND
+                pls.level = :level
+        ');
+        $LevelStatsStatement->bindParam(':race', $Race);
+        $LevelStatsStatement->bindParam(':class', $Class);
+        $LevelStatsStatement->bindParam(':level', $Level);
+        $LevelStatsStatement->execute();
+        $Result = $LevelStatsStatement->fetch(PDO::FETCH_ASSOC);
+        $Result['level']    =   $Level;
+        $Result['parrypoints'] = Characters::GetParryRatingByLevel($Level);
+        $Result['blockpoints'] = Characters::GetBlockRatingByLevel($Level);
+        $Result['critpoints'] = Characters::GetCritRatingByLevel($Level);
+        $Result['hastepoints'] = Characters::GetHasteRatingByLevel($Level);
+        return $Result;
+    }
+
     public static function GetGearForCharacter($CharacterGuid)
     {
         $Statement = Characters::$CharConnection->prepare('
         SELECT
             ii.itemEntry,
+            ii.enchantments,
             ci.slot
         FROM character_inventory ci
         LEFT JOIN item_instance ii ON
             ci.item = ii.guid
         WHERE
-            ci.slot >= 0
-          AND
-            ci.slot <= 18
-          AND
-            ci.guid = :guid
+              ci.guid = :guid
+            AND
+              ii.itemEntry != 6948
+            AND
+              ci.bag = 0
+            AND ci.slot < 19
         ORDER BY ci.slot
         ');
         $Statement->bindParam(':guid', $CharacterGuid);
         $Statement->execute();
         $Result = $Statement->fetchAll(PDO::FETCH_ASSOC);
-        $Index = 0;
+        $Equipment = [];
+        $ItemInstanceData = $Result;
 
-        // Fill empty slots
-        $SlotRange = range(0, 18);
-
-        // Add item Data to existing slots
-        foreach($Result as $Item)
+        $FingerID = 11;
+        $TrinketID = 12;
+        $TwoHanderID = 17;
+        foreach($Result as $Key=>$Item)
         {
-            if(in_array($Item['slot'], $SlotRange))
-            {
-                $Result[$Index]['data'] = Items::GetItemInfo($Item['itemEntry']);
-                unset($SlotRange[$Item['slot']]);
-                $Index++;
+            $ItemData = Items::GetItemInfo($Item['itemEntry']);
+            if(Items::IsEquipment($ItemData['InventoryType'])){
+                if($ItemData['InventoryType'] == 11){
+                    $iData = Items::SiteSlotPositionByType($FingerID);
+                    $FingerID = $FingerID + 100;
+                    $Equipment[] = $ItemData['entry'].' = '.$iData['side'].' = '.$iData['placement'];
+                }
+                if($ItemData['InventoryType'] == 12){
+                    $iData = Items::SiteSlotPositionByType($TrinketID);
+                    $TrinketID = $TrinketID + 100;
+                    $Equipment[] = $ItemData['entry'].' = '.$iData['side'].' = '.$iData['placement'];
+                }
+                if($ItemData['InventoryType'] == 17){
+                    if($TwoHanderID > 120)
+                        break;
+                    $iData = Items::SiteSlotPositionByType($TwoHanderID);
+                    $TwoHanderID = $TwoHanderID + 100;
+                    $Equipment[] = $ItemData['entry'].' = '.$iData['side'].' = '.$iData['placement'];
+                } else {
+                    $iData = Items::SiteSlotPositionByType($ItemData['InventoryType']);
+                    $Equipment[] = $ItemData['entry'].' = '.$iData['side'].' = '.$iData['placement'];
+                }
+            } else {
+                unset($Result[$Key]);
             }
         }
-        foreach($SlotRange as $MissingSlot)
-            $Result[] = array('itemEntry' => 0, 'slot' => $MissingSlot);
+
+        $Similarities = [];
+        foreach($Equipment as $Item){
+            $Exploded = explode('=', $Item);
+
+            $ItemID = trim($Exploded[0]);
+            $ItemSide = trim($Exploded[1]);
+            $ItemPosition = trim($Exploded[2]);
+
+            $Result = Text::Like($Equipment, $ItemID);
+            if(count($Result) > 1){
+                foreach($Result as $Key => $Value){
+                    unset($Equipment[$Key]);
+                }
+                $Similarities[] = array_shift($Result);
+            }
+        }
+        $Similarities = array_unique($Similarities);
+        $Equipment = array_merge($Equipment, $Similarities);
+
+        $EquippedItems = [];
+        $LeftIndexes = [11, 12, 13, 14, 15, 16, 17, 18];
+        $RightIndexes = [21, 22, 23, 24, 25, 26, 27,28];
+        $BottomIndexes = [31, 32, 33];
+
+        foreach($Equipment as $Item){
+            $Exploded = explode('=', $Item);
+
+            $ItemID = trim($Exploded[0]);
+            $ItemSide = trim($Exploded[1]);
+            $ItemPosition = trim($Exploded[2]);
+
+            if($ItemSide == 'left')
+                $Position = 10 + $ItemPosition;
+            elseif($ItemSide == 'right')
+                $Position = 20 + $ItemPosition;
+            elseif($ItemSide == 'bottom')
+                $Position = 30 + $ItemPosition;
+
+            $EquippedItems[$Position]['site'] = ['side' => $ItemSide, 'position' => $ItemPosition];
+            $EquippedItems[$Position]['data'] = Items::GetItemInfo($ItemID);
+            $EntryID = Text::MASearch($ItemInstanceData, 'itemEntry', $ItemID);
+            $Enchantments = $ItemInstanceData[$EntryID]['enchantments'];
+            if(Items::isItemEnchanted($Enchantments))
+                $EquippedItems[$Position]['data']['enchanted'] = 1;
+            else
+                $EquippedItems[$Position]['data']['enchanted'] = 0;
+
+            if($EquippedItems[$Position]['data']['enchanted']){
+                $SocketsCount = 1;
+                $SpellsCount = 1;
+                $EnchantmentsList = Items::getEnchantments($Enchantments);
+                $EnchantmentsData = [];
+                foreach($EnchantmentsList as $EnchantmentID)
+                    if($EnchantmentID != $EquippedItems[$Position]['data']['socketBonus']){
+                        $Data = Items::getEnchantmentData($EnchantmentID);
+                        if($Data['is_socket']){
+                            $EnchantmentsData['socket'.$SocketsCount] = $Data;
+                            $SocketsCount++;
+                        } else {
+                            $EnchantmentsData['spell'.$SpellsCount] = $Data;
+                            $SpellsCount++;
+                        }
+                    }
+
+                $EquippedItems[$Position]['enchantments'] = $EnchantmentsData;
+            }
+        }
+
+        foreach($LeftIndexes as $Index)
+            if(!isset($EquippedItems[$Index])){
+                $EquippedItems[$Index]['site'] = ['side' => 'left', 'position' => ($Index - 10)];
+                $SearchResult = Text::Search(Items::SiteSlotPositionByType(null, true), ['side' => 'left', 'placement' => ($Index - 10)])[0];
+                $EquippedItems[$Index]['data'] = ['InventoryType' => $SearchResult];
+            }
+        foreach($RightIndexes as $Index)
+            if(!isset($EquippedItems[$Index])){
+                $EquippedItems[$Index]['site'] = ['side' => 'right', 'position' => ($Index - 20)];
+                $SearchResult = Text::Search(Items::SiteSlotPositionByType(null, true), ['side' => 'left', 'placement' => ($Index - 20)])[0];
+                $EquippedItems[$Index]['data'] = ['InventoryType' => $SearchResult];
+            }
+        foreach($BottomIndexes as $Index)
+            if(!isset($EquippedItems[$Index])){
+                $EquippedItems[$Index]['site'] = ['side' => 'bottom', 'position' => ($Index - 30)];
+                $SearchResult = Text::Search(Items::SiteSlotPositionByType(null, true), ['side' => 'left', 'placement' => ($Index - 30)])[0];
+                $EquippedItems[$Index]['data'] = ['InventoryType' => $SearchResult];
+            }
+
+        ksort($EquippedItems);
 
         $ItemLevel = 0;
         $ItemsCount = 0;
-        foreach($Result as $Item)
-            if($Item['slot'] != 18 && $Item['slot'] != 3)
+        foreach($EquippedItems as $Item)
+            if(isset($Item['data']['entry']) && $Item['data']['InventoryType'] != 19 && $Item['data']['InventoryType'] != 4)
                 if(isset($Item['data']))
                 {
                     $ItemLevel = $ItemLevel + $Item['data']['ItemLevel'];
                     $ItemsCount++;
                 }
 
-        $StrengthValue = 0;
-        $AgilityValue = 0;
-        $IntellectValue = 0;
-        $StaminaValue = 0;
-        $SpiritValue = 0;
-        $ArmorValue = 0;
+        $Result = $EquippedItems;
+
+        $LevelData = Characters::LevelStats(Characters::$CharacterRace, Characters::$CharacterClass, Characters::$CharacterLevel);
+        $StrengthValue = $LevelData['str'];
+        $AgilityValue = $LevelData['agi'];
+        $IntellectValue = $LevelData['inte'];
+        $StaminaValue = $LevelData['sta'];
+        $SpiritValue = $LevelData['spi'];
+        $ArmorValue = 2 * $LevelData['agi'];
         $ParryValue = 0;
         $DodgeValue = 0;
         $BlockValue = 0;
         $CritValue = 0;
         $HasteValue = 0;
         $SpellPowerValue = 0;
+        $ArmorPenetrationValue = 0;
+        $SpellPenetrationValue = 0;
 
         $MainHandSpeed = 0;
         $OffHandSpeed = 0;
         $RangedSpeed = 0;
+        $MainHandDps = 0;
+        $OffHandDps = 0;
+        $RangedDps = 0;
 
-        foreach($Result as $Item)
-        {
-            if(isset($Item['data']))
-            {
-                if($Item['data']['armor'] != 0)
+        $MHD = [];
+        $OHD = [];
+        $RHD = [];
+        $isTwoHanders = false;
+
+        foreach($Result as $Item) {
+            if (isset($Item['data'])) {
+                if (isset($Item['data']['armor']) && $Item['data']['armor'] != 0)
                     $ArmorValue = $ArmorValue + $Item['data']['armor'];
+
                 for($i = 1; $i <=5; $i++)
                 {
-                    if($Item['data']['stat_type'.$i] != 0)
+                    if(isset($Item['data']['stat_type'.$i]) && $Item['data']['stat_type'.$i] != 0)
                     {
                         if ($Item['data']['stat_type'.$i] == 3)
                             $AgilityValue = $AgilityValue + $Item['data']['stat_value'.$i];
@@ -266,14 +423,63 @@ Class Characters
                             $BlockValue = $BlockValue + $Item['data']['stat_value'.$i];
                     }
                 }
-                if($Item['slot'] == 15)
+
+                if(isset($Item['data']['enchanted']) && $Item['data']['enchanted']){
+                    for($i = 1; $i <=3; $i++){
+                        if(isset($Item['enchantments']['socket'.$i])){
+                            $SocketData = $Item['enchantments']['socket'.$i];
+
+                            $BonusData = Items::GetValueVariable($SocketData['text_loc0']);
+                            if(count($BonusData) > 1){
+                                foreach($BonusData as $Bonus){
+                                    $Value = $Bonus['value'];
+                                    $Points = $Bonus['points'];
+                                    $$Value = $$Value + $Points;
+                                }
+                            } else {
+                                $Bonus = $BonusData[0];
+                                $Value = $Bonus['value'];
+                                $Points = $Bonus['points'];
+                                $$Value = $$Value + $Points;
+                            }
+                        }
+                    }
+                }
+
+                if($Item['site']['side'] == 'bottom' && $Item['site']['position'] == 1){
                     $MainHandSpeed = $Item['data']['delay'];
-                elseif($Item['slot'] == 16)
-                    $OffHandSpeed = $Item['data']['delay'];
-                elseif($Item['slot'] == 17)
+                    $MainHandDps = round(($Item['data']['dmg_min1'] + $Item['data']['dmg_max1'])/2/($Item['data']['delay']/1000), 2);
+
+                    $MHD = [
+                        'min' => $Item['data']['dmg_min1'],
+                        'max' => $Item['data']['dmg_max1'],
+                        'speed' => round($Item['data']['delay'] / 1000, 1),
+                    ];
+                }
+                if($Item['site']['side'] == 'bottom' && $Item['site']['position'] == 2 && isset($Item['data']['entry'])){
+                    if($Item['data']['InventoryType'] == 17)
+                        $isTwoHanders = true;
+                    $OffHandSpeed = $OffHandSpeed = $Item['data']['delay'];
+                    $OffHandDps = round(($Item['data']['dmg_min1'] + $Item['data']['dmg_max1'])/2/($Item['data']['delay']/1000), 2);
+                    $OHD = [
+                        'min' => $Item['data']['dmg_min1'],
+                        'max' => $Item['data']['dmg_max1'],
+                        'speed' => round($Item['data']['delay'] / 1000, 1),
+                        'name'  => $Item['data']['name']
+                    ];
+                }
+                if($Item['site']['side'] == 'bottom' && $Item['site']['position'] == 3){
                     $RangedSpeed = $Item['data']['delay'];
+                    $RangedDps = round(($Item['data']['dmg_min1'] + $Item['data']['dmg_max1'])/2/($Item['data']['delay']/1000), 2);
+                    $RHD = [
+                        'min' => $Item['data']['dmg_min1'],
+                        'max' => $Item['data']['dmg_max1'],
+                        'speed' => round($Item['data']['delay'] / 1000, 1),
+                    ];
+                }
             }
         }
+
 
         $Result['StrengthValue'] = $StrengthValue;
         $Result['AgilityValue'] = $AgilityValue;
@@ -287,14 +493,145 @@ Class Characters
         $Result['CritValue'] = $CritValue;
         $Result['HasteValue'] = $HasteValue;
         $Result['SpellPowerValue'] = $SpellPowerValue;
+        $Result['ArmorPenetration'] = $ArmorPenetrationValue;
+        $Result['SpellPenetration'] = $SpellPenetrationValue;
+
+
+        //Main Hand Stats
         $Result['MainHandSpeed'] = $MainHandSpeed;
+        $Result['MainHandDps'] = $MainHandDps;
+        $Result['MainHandData'] = $MHD;
+
+
+        //Off Hand Stats
         $Result['OffHandSpeed'] = $OffHandSpeed;
+        $Result['OffHandDps'] = $OffHandDps;
+        $Result['OffHandData'] = $OHD;
+
+        //Ranged Stats
         $Result['RangedSpeed'] = $RangedSpeed;
-        $Result['AttackPower'] = Characters::CalculateAttackPower(Characters::$CharacterClass, Characters::$CharacterLevel, $StrengthValue, $AgilityValue);
+        $Result['RangedDps'] = $RangedDps;
+        $Result['RangedData'] = $RHD;
+
+        $BaseAP = Characters::CalculateAttackPower(Characters::$CharacterClass, Characters::$CharacterLevel, $StrengthValue, $AgilityValue);
+        if($isTwoHanders){
+            $AttackPower = ($Result['OffHandDps'] + $BaseAP/3.5) * $OffHandSpeed / 1000;
+        } else {
+            $AttackPower = ($MainHandDps + $BaseAP/3.5) * $MainHandSpeed / 1000;
+        }
+
+        if(!empty($Result['MainHandData']))
+            $Result['MainHandDamage'] = Items::CalculateWeaponDamage($Result['MainHandData'], $AttackPower);
+        else
+            $Result['MainHandDamage'] = ['minimum' => -1, 'maximum' => -1, 'dps' => -1, 'speed' => -1];
+
+        if(!empty($Result['OffHandData']))
+            $Result['OffHandDamage'] = Items::CalculateWeaponDamage($Result['OffHandData'], $AttackPower);
+        else
+            $Result['OffHandDamage'] = ['minimum' => -1, 'maximum' => -1, 'dps' => -1, 'speed' => -1];
+
+        if(!empty($Result['RangedData']))
+            $Result['RangedDamage'] = Items::CalculateWeaponDamage($Result['RangedData'], $AttackPower);
+        else
+            $Result['RangedDamage'] = ['minimum' => -1, 'maximum' => -1, 'dps' => -1, 'speed' => -1];
+
+        $Result['AttackPower'] = round($AttackPower, 0);
         $Result['DamageReduction'] = Characters::DamageReductionByLevel(Characters::$CharacterLevel, $ArmorValue);
         $Result['TotalItemLevel'] = $ItemLevel;
         $Result['EquippedItems'] = $ItemsCount;
+        $Result['hasOffhand'] = $isTwoHanders;
         return $Result;
+    }
+
+    public static function generateCharacterInventorySQL($CharacterGUID, $Items){
+        $SQLArray = [];
+
+        $RingInArray = false;
+        $TrinketInArray = false;
+        $OneHandInArray = false;
+
+        $ItemsData = Items::getDataForItemInstance($Items);
+        foreach($ItemsData as $ItData){
+            $Item = $ItData['entry'];
+
+            if($ItData['InventoryType'] == 11) {
+                if(!$RingInArray){
+                    $TypeID = $ItData['InventoryType'] + 20;
+                    $RingInArray = true;
+                } else {
+                    $TypeID = $ItData['InventoryType'] + 21;
+                }
+            } elseif($ItData['InventoryType'] == 12) {
+                if(!$TrinketInArray){
+                    $TypeID = $ItData['InventoryType'] + 30;
+                    $TrinketInArray = true;
+                } else {
+                    $TypeID = $ItData['InventoryType'] + 31;
+                }
+            } elseif($ItData['InventoryType'] == 13){
+                if(!$OneHandInArray){
+                    $TypeID = $ItData['InventoryType'] + 27;
+                    $OneHandInArray = true;
+                } else {
+                    $TypeID = $ItData['InventoryType'] + 28;
+                }
+            } else {
+                $TypeID = $ItData['InventoryType'];
+            }
+
+            $ItemSlot = Items::InventoryTypeToCharacterInventory($TypeID);
+
+            $SQLArray[] = "INSERT INTO character_inventory (guid, bag, slot, item) VALUES ('$CharacterGUID', '0', '$ItemSlot', (SELECT guid FROM item_instance WHERE itemEntry = '$Item' AND owner_guid = '$CharacterGUID'))";
+        }
+        $SQLArray[] = "INSERT INTO character_inventory (guid, bag, slot, item) VALUES ('$CharacterGUID', '0', '23', (SELECT guid FROM item_instance WHERE itemEntry = '6948' AND owner_guid = '$CharacterGUID'))";
+        return $SQLArray;
+    }
+
+    public static function generateCharacterSkillsSQL($CharacterGUID, $Professions){
+        $SQLArray = [];
+
+        foreach($Professions as $Skill){
+            $SkillID = $Skill['skill'];
+            $SkillValue = $Skill['new_value'];
+            $SkillMax = $Skill['new_max'];
+
+            $SQLArray[] = "UPDATE character_skills SET value = '$SkillValue', max = '$SkillMax' WHERE guid = '$CharacterGUID' AND skill = '$SkillID'";
+        }
+
+        if(empty(Text::Search($Professions, ['skill' => 762]))){
+            $SQLArray[] = "INSERT INTO character_skills (guid, skill, value, max) VALUES ('$CharacterGUID', '762', '450', '450')";
+        }
+
+        return $SQLArray;
+    }
+
+    public static function generateCharacterSpellsSQL($CharacterGUID, $Spells){
+
+        $NewSpells = [];
+        $SQLArray = [];
+
+        foreach($Spells as $Spell){
+            $Status = Database::getSingleRow('Characters', 'SELECT * FROM character_spell WHERE guid = :guid AND spell = :spell', [['id' => ':guid', 'value' => $CharacterGUID], ['id' => ':spell', 'value' => $Spell]]);
+            if(!$Status)
+                $NewSpells[] = $Spell;
+        }
+
+        foreach($NewSpells as $Spell){
+            $SQLArray[] = "INSERT INTO character_spell (guid, spell, active, disabled) VALUES ('$CharacterGUID', '$Spell', '1', '0')";
+        }
+
+        return $SQLArray;
+    }
+
+    public static function generateCharacterLevelUP($CharacterGUID){
+        $SQLArray = [];
+
+        $SQLArray[] = "UPDATE characters SET level = '80', position_x = '5726.00', position_y = '543.352', position_z = '653.00', map = '571', orientation = '4' WHERE guid = '$CharacterGUID'";
+        $SQLArray[] = "DELETE FROM character_queststatus WHERE guid = '$CharacterGUID'";
+        $SQLArray[] = "DELETE FROM character_inventory WHERE guid = '$CharacterGUID'";
+        $SQLArray[] = "DELETE FROM item_instance WHERE owner_guid = '$CharacterGUID'";
+
+        return $SQLArray;
     }
 
     public static function PickRandomChar($UserID)
@@ -459,9 +796,10 @@ Class Characters
         $Result['level_data']['hastepoints'] = Characters::GetHasteRatingByLevel($Result['level']);
         $StatByClass = Characters::StatByClass($Result['class']);
         $Result['power_data'] = $StatByClass;
-        $Result['power_data']['value'] = $Result[$StatByClass['field']];
+        $Result['power_data']['value'] = @$Result[$StatByClass['field']];
         Characters::$CharacterLevel = $Result['level'];
         Characters::$CharacterClass = $Result['class'];
+        Characters::$CharacterRace = $Result['race'];
         return $Result;
     }
 
@@ -509,7 +847,7 @@ Class Characters
     private static function CalculateAttackPower($Class, $Level, $Strength, $Agility)
     {
         $AttackPowerByClass = array(
-            '1' => ($Strength*2)+($Level*3)-20,
+            '1' => ($Level*3)+($Strength*2-20),
             '2' => ($Strength*2)+($Level*3)-20,
             '3' => $Strength+$Agility+($Level*2)-20,
             '4' => $Strength+($Agility*2)+($Level*2)-20,
@@ -877,6 +1215,22 @@ Class Characters
             return $Professions[$ProfessionID];
         else
             return false;
+    }
+
+    public static function getCharactersProfessions($CharacterGUID)
+    {
+        $Professions = [];
+
+        $Data = Database::getMultiRow('Characters', 'SELECT * FROM character_skills WHERE guid = :guid', [['id' => ':guid', 'value' => $CharacterGUID]]);
+        foreach($Data as $Skill){
+            $Profession = self::GetProfessionData($Skill['skill']);
+            if($Profession){
+                $Skill['profession_name'] = $Profession['translation'];
+                $Professions[] = $Skill;
+            }
+        }
+
+        return $Professions;
     }
 
     public static function CheckGuild($GuildName)

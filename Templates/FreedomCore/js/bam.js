@@ -336,12 +336,12 @@ var ChargebackCall = {
     },
 
     getChargeback: function(regionNumber, region) {
-        var postData = { csrftoken: csrftoken, region: region };
+        var postData = { region: region };
 
         $.ajax({
             type: 'POST',
             timeout: 60000,
-            url: Core.baseUrl + '/data/wow-licenses-details.html',
+            url: '/data/wow-licenses-details.html',
             data: postData,
             dataType: 'json',
             success: function(msg) {
@@ -771,14 +771,14 @@ var accountBalance = {
         this.refreshBalanceElement.hide();
         this.refreshingBalanceElement.show();
 
-        var postData = { csrftoken: csrftoken };
+        var postData = { };
 
         $.ajax({
             type: 'POST',
             timeout: 60000,
             data: postData,
             dataType: 'json',
-            url: Core.baseUrl + '/data/refresh-balance',
+            url: '/data/refresh-balance',
             success: function(msg) {
                 if (msg !== '') {
                     var currencies = msg;
@@ -843,11 +843,11 @@ var accountBalance = {
         if (selected) {
             accountBalance.accountBalanceCurrency = selected;
         }
-        var postData = { csrftoken: csrftoken, prefix: 'CUR', value: accountBalance.accountBalanceCurrency };
+        var postData = { prefix: 'CUR', value: accountBalance.accountBalanceCurrency };
         $.ajax({
             type: 'POST',
             timeout: 60000,
-            url: Core.baseUrl + '/data/set-account-cookie',
+            url: '/data/set-account-cookie',
             data: postData,
             dataType: 'json',
             success: function(msg) {

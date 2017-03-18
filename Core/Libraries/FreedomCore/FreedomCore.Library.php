@@ -21,15 +21,28 @@ if (!defined('FREEDOMCORE_EXTENSIONS_DIR'))
      define('FREEDOMCORE_EXTENSIONS_DIR', FREEDOMCORE_DIR . 'Extensions' . DS);
 
 /**
+ * set FREEDOMCORE_EXTENSIONS_DIR to absolute path to FreedomCore external plugins.
+ * Sets FREEDOMCORE_EXTENSIONS_DIR only if user application has not already defined it.
+ */
+if (!defined('FREEDOMCORE_PLUGINS_DIR'))
+    define('FREEDOMCORE_PLUGINS_DIR', FREEDOMCORE_DIR . 'Plugins' . DS);
+
+/**
  * set FREEDOMCORE_SYSTEM_EXTENSIONS_DIR to absolute path to FreedomCore internal plugins.
  * Sets FREEDOMCORE_SYSTEM_EXTENSIONS_DIR only if user application has not already defined it.
  */
 if (!defined('FREEDOMCORE_SYSTEM_DIR'))
      define('FREEDOMCORE_SYSTEM_DIR', FREEDOMCORE_DIR . 'Libraries' . DS .'FreedomCore' . DS . 'System' .DS);
+/**
+ * set FREEDOMCORE_INTERFACES_DIR to absolute path to FreedomCore Interfaces.
+ * Sets FREEDOMCORE_INTERFACES_DIR only if user application has not already defined it.
+ */
+if (!defined('FREEDOMCORE_INTERFACES_DIR'))
+    define('FREEDOMCORE_INTERFACES_DIR', FREEDOMCORE_DIR . 'Libraries' . DS .'FreedomCore' . DS . 'Interfaces' .DS);
 
 Class FreedomCore
 {
-	const FREEDOMCORE_VERSION = 'FreedomCore-1.0.1';
+	const FREEDOMCORE_VERSION = 'FreedomCore-2.0.0';
     private $License;
 
     /**
@@ -75,7 +88,6 @@ Class FreedomCore
 
     private static function VerifyPDOInstallation()
     {
-        $PDOInstalled = false;
         if(extension_loaded('pdo'))
             $PDOInstalled = true;
         else
@@ -96,11 +108,14 @@ Class FreedomCore
         Manager::LoadSystemExtension("Security");
         Manager::LoadSystemExtension("Session");
         Manager::LoadSystemExtension("Debugger");
-        Manager::LoadSystemExtension("Database");
         Manager::LoadSystemExtension("Utilities");
+        Manager::LoadSystemExtension("Cache");
+        Manager::LoadSystemExtension("Image");
+        Manager::LoadSystemExtension("Database");
         Manager::LoadSystemExtension("Page");
         Manager::LoadSystemExtension("Text");
         Manager::LoadSystemExtension("File");
+        Manager::LoadSystemExtension("Plugins");
     }
 
 	/**

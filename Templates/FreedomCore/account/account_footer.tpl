@@ -100,7 +100,9 @@
 
     <script type="text/javascript">
         //<![CDATA[
-        var csrftoken = "625ea365-1f2f-418d-bdab-6eff64de74bb";
+        {if isset($CSRFToken)}
+        var csrftoken = "{$CSRFToken}";
+        {/if}
         $(function() {
             Locale.dataPath = "/data/i18n.frag";
         });
@@ -129,6 +131,10 @@
     {if $Page.bodycss == 'claimcode'}
         <script type="text/javascript" src="/Templates/{$Template}/js/account/add-game.js"></script>
     {/if}
+    {if $Page.bodycss == 'restoration'}
+        <script type="text/javascript" src="/Templates/{$Template}/js/dataset.js"></script>
+        <script type="text/javascript" src="/Templates/{$Template}/js/account/restoration.js"></script>
+    {/if}
     {if $Page.type == 'account_parameters'}
         <script type="text/javascript" src="/Templates/{$Template}/js/inputs.js"></script>
         <script type="text/javascript" src="/Templates/{$Template}/js/account/password.js"></script>
@@ -144,6 +150,11 @@
         <script type="text/javascript" src="/Templates/{$Template}/js/inputs.js"></script>
         <script type="text/javascript" src="/Templates/{$Template}/js/freedomtag/freedomtag-validator.js"></script>
         <script type="text/javascript" src="/Templates/{$Template}/js/freedomtag/freedomtag-randomize.js"></script>
+    {/if}
+
+    {if $Page.bodycss == 'services-home'}
+        {include file = 'parts/MSG_Javascript.tpl'}
+        <script type="text/javascript" src="/Templates/{$Template}/js/cms.min.js"></script>
     {/if}
 
     </body>

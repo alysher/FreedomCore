@@ -75,9 +75,6 @@ switch($_REQUEST['category'])
                                     Manager::LoadExtension('Soap', $ClassConstructor);
                                     if(!isset($_REQUEST['accountName']))
                                     {
-                                        //Soap::AddItemToList(49623, 1);
-                                        //Soap::SendItem('Ruspowa', 'Armored Bloodwing');
-
                                         $Smarty->assign('Page', Page::Info('account_dashboard', array('bodycss' => 'servicespage', 'pagetitle' => $Smarty->GetConfigVars('Account_Management_Claim_Code').' - ')));
                                         $Smarty->display('account/claim_code');
                                     }
@@ -134,6 +131,7 @@ switch($_REQUEST['category'])
                                                         case 'PCT':
                                                                 echo "Not Yet Implemented!!!";
                                                             break;
+                                                        case 'PCB':
                                                         case 'PFC':
                                                         case 'PRC':
                                                         case 'PCC':
@@ -163,8 +161,10 @@ switch($_REQUEST['category'])
                                                                     'price' => Account::GetServicePrice($_REQUEST['service'])
                                                                 );
                                                                 $Smarty->assign('Service', $Service);
-                                                                if($_REQUEST['servicecat'] != 'history')
-                                                                    $Smarty->assign('Character', Characters::GetCharacterData($_REQUEST['character']));
+                                                                if($_REQUEST['servicecat'] != 'history'){
+                                                                    $CharacterData = Characters::GetCharacterData($_REQUEST['character']);
+                                                                    $Smarty->assign('Character', $CharacterData);
+                                                                }
                                                                 switch($_REQUEST['servicecat'])
                                                                 {
                                                                     case 'history':
@@ -186,6 +186,11 @@ switch($_REQUEST['category'])
                                                                         break;
 
                                                                     case 'confirm':
+                                                                        if($_REQUEST['service'] == 'PCB'){
+                                                                            Manager::LoadExtension('Classes', $ClassConstructor);
+                                                                            $Smarty->assign('BoostItems', Classes::getBoostClassData($CharacterData['class']));
+                                                                            $Smarty->assign('ProfessionsBoost', Classes::getBoostProfessions($CharacterData['guid']));
+                                                                        }
                                                                         $Smarty->assign('Page', Page::Info('account_dashboard', array('bodycss' => 'servicespage', 'pagetitle' => $Smarty->GetConfigVars('Account_Management_Service_'.$Service['service']).' - ')));
                                                                         $Smarty->display('account/pcs_confirm');
                                                                         break;
@@ -193,6 +198,56 @@ switch($_REQUEST['category'])
                                                                     default:
                                                                         header('Location: /account/management');
                                                                         break;
+                                                                }
+                                                            }
+                                                        break;
+                                                        case 'FIR':
+                                                            if(!isset($_REQUEST['servicecat'])) {
+                                                                $Service = array(
+                                                                    'name' => strtolower($_REQUEST['service']),
+                                                                    'title' => $Smarty->GetConfigVars('Account_Management_Service_' . $_REQUEST['service']),
+                                                                    'description' => $Smarty->GetConfigVars('Account_Management_Service_' . $_REQUEST['service'] . '_Description'),
+                                                                    'service' => $_REQUEST['service'],
+                                                                    'price' => Account::GetServicePrice($_REQUEST['service'])
+                                                                );
+                                                                $Smarty->assign('Service', $Service);
+                                                                $Smarty->assign('Characters', Characters::GetCharacters($User['id']));
+                                                                $Smarty->assign('Page', Page::Info('account_dashboard', array('bodycss' => 'servicespage', 'pagetitle' => $Smarty->GetConfigVars('Account_Management_Service_' . $Service['service']) . ' - ')));
+                                                                $Smarty->display('account/fir');
+                                                            } else {
+                                                                Manager::LoadExtension('ItemsRestoration', [$Database, $Smarty]);
+                                                                $Service = array(
+                                                                    'name' => strtolower($_REQUEST['service']),
+                                                                    'title' => $Smarty->GetConfigVars('Account_Management_Service_'.$_REQUEST['service']),
+                                                                    'description' => $Smarty->GetConfigVars('Account_Management_Service_'.$_REQUEST['service'].'_Description'),
+                                                                    'history' => $Smarty->GetConfigVars('Account_Management_Service_'.$_REQUEST['service'].'_History'),
+                                                                    'service' => $_REQUEST['service'],
+                                                                    'price' => Account::GetServicePrice($_REQUEST['service'])
+                                                                );
+                                                                $Smarty->assign('Service', $Service);
+                                                                if($_REQUEST['servicecat'] != 'history')
+                                                                {
+                                                                    $Character = Characters::GetCharacterData($_REQUEST['character']);
+                                                                    $Smarty->assign('Character', $Character);
+                                                                }
+
+                                                                switch($_REQUEST['servicecat'])
+                                                                {
+                                                                    case 'description':
+                                                                        $Smarty->assign('Page', Page::Info('account_dashboard', array('bodycss' => 'restoration', 'pagetitle' => $Smarty->GetConfigVars('Account_Management_Service_'.$Service['service']).' - ')));
+                                                                        $Smarty->display('account/fir_description');
+                                                                    break;
+
+                                                                    case 'select-items':
+                                                                        $Items = ItemsRestoration::GetCharactersDeletedItems($Character['guid']);
+                                                                        $Smarty->assign('DItems', $Items);
+                                                                        $Smarty->assign('Page', Page::Info('account_dashboard', array('bodycss' => 'restoration', 'pagetitle' => $Smarty->GetConfigVars('Account_Management_Service_'.$Service['service']).' - ')));
+                                                                        $Smarty->display('account/fir_select');
+                                                                    break;
+
+                                                                    case 'complete':
+
+                                                                    break;
                                                                 }
                                                             }
                                                         break;
@@ -273,6 +328,8 @@ switch($_REQUEST['category'])
                                     else
                                     {
                                         $AccountID = str_replace('WoW', '', $_REQUEST['accountName']);
+                                        $Account = Account::GetAccountByID($AccountID);
+                                        $Character = Characters::GetCharacterData($_REQUEST['character']);
                                         $Service = array(
                                             'name' => $_REQUEST['service'],
                                             'title' => $Smarty->GetConfigVars('Account_Management_Service_'.strtoupper($_REQUEST['service'])),
@@ -281,12 +338,15 @@ switch($_REQUEST['category'])
                                             'price' => Account::GetServicePrice($_REQUEST['service'])
                                         );
                                         $Smarty->assign('Service', $Service);
-                                        $Smarty->assign('Account', Account::GetAccountByID($AccountID));
-                                        $Smarty->assign('Character', Characters::GetCharacterData($_REQUEST['character']));
+                                        $Smarty->assign('Account', $Account);
+                                        $Smarty->assign('Character', $Character);
                                         switch($_REQUEST['datatype'])
                                         {
 
                                             case 'pay':
+                                                if($_REQUEST['service'] == 'pcb'){
+                                                    $Smarty->assign('specialization', $_REQUEST['specialization']);
+                                                }
                                                 $Smarty->assign('Request', $_REQUEST);
                                                 $Smarty->assign('Page', Page::Info('account_dashboard', array('bodycss' => 'paymentpage', 'pagetitle' => $Smarty->GetConfigVars('Account_Management_Payment_Pay').' - ')));
                                                 $Smarty->display('account/payment_pay');
@@ -310,6 +370,12 @@ switch($_REQUEST['category'])
 
                                                     case 'PRC':
                                                         $PaymentState = 128;
+                                                    break;
+
+                                                    case 'PCB':
+                                                        $PaymentState = 0;
+                                                        Manager::LoadExtension('Classes', $ClassConstructor);
+                                                        Classes::performCharacterBoost($Character);
                                                     break;
                                                 }
                                                 Account::InsertPaymentDetails($User['id'], strtolower($_REQUEST['service']), $_REQUEST['price']);
@@ -689,8 +755,38 @@ switch($_REQUEST['category'])
                         break;
 
                     case 'articles':
-                        $Smarty->assign('Page', Page::Info('admin', array('bodycss' => 'services-home', 'pagetitle' => $Smarty->GetConfigVars('MSG_Search_article').' - ')));
-                        $Smarty->display('admin/articles');
+                        Manager::LoadExtension('News', $ClassConstructor);
+                        if(!Text::IsNull($_REQUEST['lastcategory'])){
+                            switch($_REQUEST['lastcategory']){
+
+                                case 'add':
+                                    $Smarty->assign('Page', Page::Info('admin', array('bodycss' => 'services-home', 'pagetitle' => $Smarty->GetConfigVars('Administrator_Articles_Add').' - ')));
+                                    $Smarty->display('admin/create_article');
+                                break;
+
+                                case 'create-article':
+                                    if(Text::IsRequestSet($_REQUEST, ['imageName', 'postCommand_detail', 'subject'])){
+                                        News::CreateArticle($_REQUEST);
+                                        header('Location: /admin/dashboard');
+                                    } else {
+                                        header('Location: /admin/dashboard');
+                                    }
+                                break;
+
+                                case 'tmp_image':
+                                    if(is_array($_FILES)) {
+                                        if (is_uploaded_file($_FILES['file_upload']['tmp_name'])) {
+                                            $name = $_FILES['file_upload']['name'];
+                                            $sourcePath = $_FILES['file_upload']['tmp_name'];
+                                            $ImageData = Image::CreateSlideShowImage(Image::MoveUploadedImage($sourcePath, $name));
+                                            echo json_encode($ImageData);
+                                        }
+                                    }
+                                break;
+                            }
+                        } else {
+                            header('Location: /admin/dashboard');
+                        }
                     break;
 
                     case 'shop':
@@ -895,6 +991,7 @@ switch($_REQUEST['category'])
     break;
 
     case 'item':
+        $ItemsCache = new Cache("Items");
         if(Text::IsNull($_REQUEST['subcategory']))
         {
             $DisplayPageElements = 50;
@@ -983,9 +1080,27 @@ switch($_REQUEST['category'])
         {
             if(Text::IsNull($_REQUEST['lastcategory']))
             {
-                $Item = Items::GetItemInfo($_REQUEST['subcategory']);
-                $ItemRelation = Items::GetItemRelatedInfo($_REQUEST['subcategory']);
-                if(!$Item)
+                $ItemsCache->prepareCache($_REQUEST['subcategory']);
+                $isFound = false;
+
+                if($ItemsCache->isCacheExists()){
+                    $isFound = true;
+                    $Cache = $ItemsCache->readCache($_REQUEST['subcategory']);
+                    $Item = $Cache['item'];
+                    $ItemRelation = $Cache['relation'];
+                } else {
+                    $Item = Items::GetItemInfo($_REQUEST['subcategory']);
+                    if(!$Item){
+                        $isFound = false;
+                    } else {
+                        $isFound = true;
+                        $ItemRelation = Items::GetItemRelatedInfo($_REQUEST['subcategory']);
+                        $ItemsCache->prepareCache($_REQUEST['subcategory'], ['item' => $Item, 'relation' => $ItemRelation]);
+                        $ItemsCache->saveCache();
+                    }
+                }
+
+                if(!$isFound)
                     echo "Not Found!";
                 else
                 {
@@ -996,7 +1111,7 @@ switch($_REQUEST['category'])
                             $StorageDir = str_replace('/', DS, getcwd()).DS.'Uploads'.DS.'Core'.DS.'Items'.DS.'Cache'.DS.'ModelViewer'.DS;
                             $ItemName = 'item'.$Item['entry'].'.jpg';
                             if(!File::Exists($StorageDir.$ItemName))
-                                File::Download('//media.blizzard.com/wow/renders/items/item'.$Item['entry'].'.jpg', $StorageDir.$ItemName);
+                                File::Download('http://media.blizzard.com/wow/renders/items/item'.$Item['entry'].'.jpg', $StorageDir.$ItemName);
                         }
                         elseif($Item['class']['class'] == 15 && $Item['subclass']['subclass'] == 5)
                         {
@@ -1007,7 +1122,7 @@ switch($_REQUEST['category'])
                                 {
                                     $ItemName = 'creature'.$Item['spell_data'.$i]['SearchForCreature'].'.jpg';
                                     if(!File::Exists($StorageDir.$ItemName))
-                                        File::Download('//media.blizzard.com/wow/renders/npcs/rotate/creature'.$Item['spell_data'.$i]['SearchForCreature'].'.jpg', $StorageDir.$ItemName);
+                                        File::Download('http://media.blizzard.com/wow/renders/npcs/rotate/creature'.$Item['spell_data'.$i]['SearchForCreature'].'.jpg', $StorageDir.$ItemName);
                                 }
                             }
                         }
@@ -1023,15 +1138,12 @@ switch($_REQUEST['category'])
                 if($_REQUEST['lastcategory'] == 'tooltip')
                 {
                     $Item = Items::GetItemInfo($_REQUEST['subcategory']);
-                    $Smarty->assign('Item', $Item);
-                    $Smarty->display('blocks/item_tooltip');
-                }
-                elseif($_REQUEST['lastcategory'] == 'test')
-                {
-                    $Item = Items::GetItemInfo($_REQUEST['subcategory']);
-                    $Spell = Spells::SpellInfo(54870);
-                    echo "<pre>";
-                    print_r($Spell);
+                    if($Item){
+                        $Smarty->assign('Item', $Item);
+                        $Smarty->display('blocks/item_tooltip');
+                    } else {
+                        echo "Not Found!";
+                    }
                 }
                 elseif(strstr($_REQUEST['lastcategory'], '.frag'))
                 {
@@ -1230,7 +1342,12 @@ switch($_REQUEST['category'])
             Page::GenerateErrorPage($Smarty, 404);
         else
         {
-            if (!Text::IsNull($_REQUEST['lastcategory']) && $_REQUEST['lastcategory'] == 'tooltip')
+            if (!Text::IsNull($_REQUEST['lastcategory']) && $_REQUEST['lastcategory'] == 'test')
+            {
+                Text::PrettyPrint(Spells::GetSpellByID($_REQUEST['subcategory']));
+                Text::PrettyPrint(Spells::SpellInfo($_REQUEST['subcategory']));
+            }
+            elseif (!Text::IsNull($_REQUEST['lastcategory']) && $_REQUEST['lastcategory'] == 'tooltip')
             {
                 $Smarty->assign('Spell', Spells::SpellInfo($_REQUEST['subcategory']));
                 $Smarty->display('blocks/spell_tooltip');
@@ -1655,11 +1772,11 @@ switch($_REQUEST['category'])
                         {
                             case 'load.json':
                                 $CommentsInfo = array(
-                                    'article_id' => $_REQUEST['page'],
-                                    'base' => $_REQUEST['base']
+                                    'article_id' => $SearchFor,
+                                    'base' => $_REQUEST['base'],
+                                    'page' => $_REQUEST['page']
                                 );
-
-                                $Smarty->assign('Comments', News::GetComments($_REQUEST['page']));
+                                $Smarty->assign('Comments', News::GetComments($SearchFor));
                                 $Smarty->display('blog/comments_load');
                                 break;
 
@@ -1689,12 +1806,34 @@ switch($_REQUEST['category'])
     break;
 
 	case 'media':
-        header($_SERVER["SERVER_PROTOCOL"]." 404 Not Found");
-//		if(Text::IsNull($_REQUEST['subcategory']))
-//		{
-//			$Smarty->assign('Page', Page::Info('media', array('bodycss' => '')));
-//			$Smarty->display('media');
-//		}
+        Manager::LoadExtension('Media', $ClassConstructor);
+        $Smarty->translate('Media');
+        switch($_REQUEST['subcategory']){
+            case 'videos':
+                $TypeID = Media::getMediaTypeByName($_REQUEST['subcategory']);
+                $Data = Media::getMediaRecord($_REQUEST['lastcategory'], $TypeID);
+                $Smarty->assign('MediaData', $Data);
+                $Smarty->assign('MediaVideos', Media::getMedia(1));
+                Page::GeneratePage($Smarty, 'media', null, $Smarty->variable('Media_Videos'), 'pages/media_videos');
+            break;
+
+            case 'screenshots':
+
+            break;
+
+            case 'music':
+
+            break;
+
+            case 'wallpapers':
+
+            break;
+
+            default:
+                $Smarty->assign('MediaData', Media::getAll());
+                Page::GeneratePage($Smarty, 'media', null, $Smarty->variable('Menu_Media'), 'pages/media_index');
+            break;
+        }
 	break;
 
     case 'shop':
@@ -1708,6 +1847,24 @@ switch($_REQUEST['category'])
             $Smarty->assign('SidebarItems', Shop::GetSidebar());
             $Smarty->assign('Page', Page::Info('shop', array('bodycss' => 'browse-template product-family-wow', 'pagetitle' => $Smarty->GetConfigVars('Menu_Shop').' - ')));
             $Smarty->display('shop');
+        } elseif(!Text::IsNull($_REQUEST['subcategory']) && $_REQUEST['subcategory'] == 'payment') {
+            if(Text::IsNull($_REQUEST['lastcategory'])){
+
+            } else {
+                switch($_REQUEST['lastcategory']){
+                    case 'success':
+
+                    break;
+
+                    case 'failed':
+
+                    break;
+
+                    case 'canceled':
+
+                    break;
+                }
+            }
         }
         else
         {

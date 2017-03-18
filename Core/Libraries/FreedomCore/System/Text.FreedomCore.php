@@ -28,6 +28,33 @@ Class Text
         return false;
     }
 
+    public static function Search($array, $search)
+    {
+
+        $result = array();
+
+        foreach ($array as $key => $value)
+        {
+            foreach ($search as $k => $v)
+                if (!isset($value[$k]) || $value[$k] != $v)
+                    continue 2;
+            $result[] = $key;
+        }
+
+        return $result;
+    }
+
+    public static function Like($Array, $Search)
+    {
+        $Position = array_filter($Array, function ($item) use ($Search) {
+            if (stripos($item, $Search) !== false) {
+                return true;
+            }
+            return false;
+        });
+        return $Position;
+    }
+
     public static function ASearch($Array, $Item){
         foreach($Array as $Key => $Value)
             if(trim($Value) == trim($Item))
@@ -76,6 +103,17 @@ Class Text
         echo "<pre>";
         print_r($Array);
         echo "</pre>";
+    }
+
+    public static function Truncate($String, $Length, $StopAnywhere=false) {
+        if (strlen($String) > $Length) {
+            $String = substr($String,0,($Length -3));
+            if ($StopAnywhere)
+                $String .= '...';
+            else
+                $String = substr($String,0,strrpos($String,' ')).'...';
+        }
+        return $String;
     }
 
     public static function MassUnset($Array, $Unset)
